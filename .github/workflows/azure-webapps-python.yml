@@ -46,8 +46,14 @@ jobs:
       - name: Unzip artifact
         run: unzip release.zip
 
+      # NUEVO PASO: Login en Azure con el Service Principal
+      - name: 'Login via Azure CLI'
+        uses: azure/login@v2
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+
       - name: 'Deploy to Azure Web App'
         uses: azure/webapps-deploy@v2
         with:
-          app-name: 'multiscrapperultrapropremium4khnunah' # <--- Reemplaza esto
-          publish-profile: ${{ secrets.AZURE_WEBAPP_PUBLISH_PROFILE }}
+          app-name: 'multiscrapperultrapropremium4khnunah'
+          # Ya no usamos publish-profile, el login previo se encarga de la auth
