@@ -79,7 +79,6 @@ def analizar_X_optimizado(keys_user, keys_timeline, lista_targets):
                 try:
                     res_u = requests.get("https://twitter241.p.rapidapi.com/user", 
                                        headers=headers_u, params={"username": target}, timeout=10)
-                    print(res_u.json())
                     if res_u.status_code == 200:
                         data = res_u.json()
                         info_profunda = data.get('result', {}).get('data', {}).get('user', {}).get('result', {})
@@ -104,7 +103,7 @@ def analizar_X_optimizado(keys_user, keys_timeline, lista_targets):
                 try:
                     res_t = requests.get("https://twitter-api45.p.rapidapi.com/timeline.php", 
                                        headers=headers_t, params={"screenname": target}, timeout=15)
-                    print(res_t.json())
+                    
                     if res_t.status_code == 200:
                         tweets = res_t.json().get('timeline', [])
                         with open(nombre_csv, mode='a', newline='', encoding='utf-8-sig') as f:

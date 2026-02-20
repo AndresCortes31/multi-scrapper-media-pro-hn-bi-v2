@@ -45,6 +45,8 @@ class ScraperViewSet(viewsets.ViewSet):
         platform = request.data.get('platform')
         targets = request.data.get('targets', [])
         
+        start_time = timezone.now().isoformat()
+
         if not platform or not targets:
             return Response({'error': 'Faltan parámetros (platform o targets)'}, 
                             status=status.HTTP_400_BAD_REQUEST)
@@ -74,19 +76,50 @@ class ScraperViewSet(viewsets.ViewSet):
         if thread:
             thread.daemon = True
             thread.start()
-            return Response({'status': 'Extracción iniciada', 'platform': platform}, status=status.HTTP_202_ACCEPTED)
+            return Response({
+                'status': 'Extracción iniciada', 
+                'platform': platform,
+                'started_at': start_time
+            }, status=status.HTTP_202_ACCEPTED)
         
         return Response({'error': 'No se pudo iniciar el hilo. Revisa las llaves.'}, status=400)
 
     @action(detail=False, methods=['get'])
     def latest_results(self, request):
-        queryset = ScrapeResult.objects.all().order_by('-created_at')[:50]
+        since = request.query_params.get('since')
+
+        queryset = ScrapeResult.objects.all().order_by('-created_at')
+
+        if since:
+            try:
+                queryset = queryset.filter(created_at__gte=since)
+            except Exception:
+                pass
+
+        queryset = queryset[:10000]
         serializer = ScrapeResultSerializer(queryset, many=True)
         return Response(serializer.data)
     
     @action(detail=False, methods=['get'])
     def latest_results(self, request):
-        queryset = ScrapeResult.objects.all().order_by('-created_at')[:50]
+        since = request.query_params.get('since')
+        platform = request.query_params.get('platform')
+
+        queryset = ScrapeResult.objects.all().order_by('-created_at')
+
+        if platform:
+            queryset = queryset.filter(platform=platform.lower())
+
+        if since:
+            try:
+                queryset = queryset.filter(created_at__gt=since)
+            except Exception as e:
+                print(f"Error filtrando por fecha: {e}")
+                pass
+
+        limit = int(request.query_params.get('limit', 100))
+        queryset = queryset[:limit]
+
         serializer = ScrapeResultSerializer(queryset, many=True)
         return Response(serializer.data)
     
