@@ -20,9 +20,7 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           # Instalamos exactamente lo que usaste localmente
-          pip install django djangorestframework django-cors-headers whitenoise gunicorn
-          # Si usas alguna otra para el scraper (ej. requests, bs4), agrégala aquí:
-          pip install requests beautifulsoup4 
+          pip install django djangorestframework django-cors-headers whitenoise gunicorn waitress
           # Generamos el archivo que Azure buscará al desplegar
           pip freeze > requirements.txt
 
