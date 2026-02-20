@@ -53,10 +53,23 @@ TEMPLATES = [
     },
 ]
 
+IF_AZURE = 'HOME' in os.environ
+
+if IF_AZURE:
+    # Ruta persistente en Azure
+    DB_PATH = os.path.join(os.environ['HOME'], 'data', 'db.sqlite3')
+    
+    # Asegúrate de que la carpeta 'data' exista para evitar errores
+    if not os.path.exists(os.path.dirname(DB_PATH)):
+        os.makedirs(os.path.dirname(DB_PATH))
+else:
+    # Ruta local para desarrollo
+    DB_PATH = BASE_DIR / 'db.sqlite3'
+
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR / 'db.sqlite3',
+        'NAME': DB_PATH,
     }
 }
 
