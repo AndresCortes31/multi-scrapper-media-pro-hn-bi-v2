@@ -1,0 +1,53 @@
+name: Deploy Django to Azure
+
+on:
+  push:
+    branches: [ "main" ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Generate Requirements (Missing file fix)
+        run: |
+          python -m pip install --upgrade pip
+          # Instalamos lo básico para que el proyecto arranque en Azure
+          pip install django gunicorn whitenoise
+          # Aquí podrías agregar otras librerías que sepas que usas
+          pip freeze > requirements.txt
+
+      - name: Zip artifact for deployment
+        # Incluimos la carpeta .dist y el nuevo requirements.txt
+        run: zip release.zip ./* -r
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: python-app
+          path: release.zip
+
+  deploy:
+    runs-on: ubuntu-latest
+    needs: build
+    steps:
+      - name: Download artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: python-app
+
+      - name: Unzip artifact
+        run: unzip release.zip
+
+      - name: 'Deploy to Azure Web App'
+        uses: azure/webapps-deploy@v2
+        with:
+          app-name: 'TU_APP_SERVICE_NAME' # <--- Reemplaza esto
+          publish-profile: ${{ secrets.AZURE_WEBAPP_PUBLISH_PROFILE }}
