@@ -1,3 +1,4 @@
+from django.db.models import Q
 from rest_framework import viewsets, status
 from rest_framework.response import Response
 from rest_framework.decorators import action
@@ -9,11 +10,14 @@ from django.db.models.functions import ExtractWeekDay
 from django.utils import timezone
 import threading
 import datetime
+from django.http import JsonResponse
+import logging
+
+logger = logging.getLogger(__name__)
 
 from django_backend.scripts.script_ig import iniciar as iniciar_ig
 from django_backend.scripts.script_tk import iniciar as iniciar_tk
 from django_backend.scripts.script_x import iniciar as iniciar_x
-from django_backend.scripts.script_metricas import mostrar_metricas
 
 class ScraperViewSet(viewsets.ViewSet):
 
@@ -24,10 +28,9 @@ class ScraperViewSet(viewsets.ViewSet):
         try:
             for platform, purposes in data.items():
                 for purpose, keys in purposes.items():
-                    # Marcamos las llaves viejas como inactivas para esta plataforma/propósito
+                    logger.info(f"Updating keys for platform: {platform}, purpose: {purpose}")
                     ScraperKey.objects.filter(platform=platform, purpose=purpose).update(is_active=False)
                     
-                    # Creamos las nuevas
                     for k in keys:
                         if k.strip():
                             ScraperKey.objects.create(
@@ -38,6 +41,7 @@ class ScraperViewSet(viewsets.ViewSet):
                             )
             return Response({'status': 'Keys updated successfully'}, status=status.HTTP_200_OK)
         except Exception as e:
+            logger.error(f"Error updating keys: {e}")
             return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
     
     @action(detail=False, methods=['post'])
@@ -84,26 +88,12 @@ class ScraperViewSet(viewsets.ViewSet):
         
         return Response({'error': 'No se pudo iniciar el hilo. Revisa las llaves.'}, status=400)
 
-    @action(detail=False, methods=['get'])
-    def latest_results(self, request):
-        since = request.query_params.get('since')
-
-        queryset = ScrapeResult.objects.all().order_by('-created_at')
-
-        if since:
-            try:
-                queryset = queryset.filter(created_at__gte=since)
-            except Exception:
-                pass
-
-        queryset = queryset[:10000]
-        serializer = ScrapeResultSerializer(queryset, many=True)
-        return Response(serializer.data)
     
     @action(detail=False, methods=['get'])
     def latest_results(self, request):
         since = request.query_params.get('since')
         platform = request.query_params.get('platform')
+        limit = int(request.query_params.get('limit', 1000))
 
         queryset = ScrapeResult.objects.all().order_by('-created_at')
 
@@ -114,14 +104,32 @@ class ScraperViewSet(viewsets.ViewSet):
             try:
                 queryset = queryset.filter(created_at__gt=since)
             except Exception as e:
-                print(f"Error filtrando por fecha: {e}")
-                pass
+                logger.error(f"Error filtrando por fecha: {e}")
 
-        limit = int(request.query_params.get('limit', 100))
         queryset = queryset[:limit]
-
         serializer = ScrapeResultSerializer(queryset, many=True)
         return Response(serializer.data)
+    
+    @action(detail=False, methods=['get'], url_path='user_history')
+    def api_historico_usuario(self, request):
+        try:
+            criterio = request.GET.get('query', '').strip()
+            
+            # Validación para evitar que el * rompa el Regex de SQL
+            if criterio == '*' or criterio == '' or criterio == '.*':
+                posts = ScrapeResult.objects.all().order_by('-created_at')[:500]
+            else:
+                posts = ScrapeResult.objects.filter(
+                    Q(username__iregex=criterio)
+                ).order_by('-created_at')[:500]
+
+            # Usamos el Serializer para evitar errores de formato manual
+            serializer = ScrapeResultSerializer(posts, many=True)
+            return Response(serializer.data)
+
+        except Exception as e:
+            logger.error(f"Error en api_historico_usuario: {str(e)}")
+            return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
     
     @action(detail=False, methods=['get'])
     def get_metrics(self, request):
